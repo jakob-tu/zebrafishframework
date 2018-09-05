@@ -7,6 +7,12 @@ from . import io
 from . import ants
 
 
+def average(images, eps):
+
+
+    return avg
+
+
 def selective_z_downscale(img, z2):
     z1 = img.shape[-1]
 

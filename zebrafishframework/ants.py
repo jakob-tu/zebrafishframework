@@ -31,9 +31,8 @@ class AntsArguments:
         self.input_name = os.path.splitext(os.path.basename(input_file))[0]
         self.reference_name = os.path.splitext(os.path.basename(reference))[0]
 
-        self.auto_scale = False
         self.dimensions = 3
-        self.use_float = 1
+        self.use_float = 0
         self.use_histogram_matching = 0
         self.interpolation = 'BSpline'
         self.winsorize = '[0.005, 0.995]'
@@ -203,10 +202,13 @@ def gen_antsreg(arguments, param_prefix=None):
     cmd += ' --use-histogram-matching %d' % arguments.use_histogram_matching
     if arguments.winsorize:
         cmd += ' --winsorize-image-intensities %s' % arguments.winsorize
-    cmd += ' -r [' + ref_in + ',1]'
 
+    # apply param_prefix before initial-moving-transform center of mass
+    # this is so the prescale matrix works properly
     if param_prefix:
         cmd += ' ' + param_prefix.strip()
+
+    cmd += ' -r [' + ref_in + ',1]'
 
     for stage in arguments.params:
         cmd += ' -t ' + stage['transform']
@@ -231,26 +233,6 @@ def run_antsreg(arguments, print_output=True):
         os.mkdir(arguments.output_folder)
 
     param_prefix = None
-    if arguments.auto_scale:
-        print('Getting shapes...')
-        s_i = np.array(io.get_shape(arguments.input_file))
-        s_r = np.array(io.get_shape(arguments.reference))
-        print('Got shapes')
-        if not np.all(s_i == s_r):
-            print('Shapes differ')
-            # shapes differ
-
-            # - why is it s_i / s_r and not vice versa? (doesn't really make sense to me)
-            # - scale vector is in xyz, while array format is zyx (makes kind of sense)
-            # this is the transformation that seems to work
-            s = list(s_i / s_r)
-            s.reverse()
-
-            prescale = sitk.ScaleTransform(len(s_i), s)
-            mat_name = os.path.abspath(os.path.join(arguments.output_folder, 'prescale.mat'))
-            sitk.WriteTransform(prescale, mat_name)
-            param_prefix = '--initial-moving-transform %s' % mat_name
-
     cmd = gen_antsreg(arguments, param_prefix)
 
     start = time.time()
@@ -327,7 +309,7 @@ def grid_search(list_input_fish, references, base_folder='gridsearch/', param_sp
     in_ref_combinations = itertools.product(list_input_fish, references)
     params = list(iter_param_space(param_space))
 
-    # shuffle configurations for various resaons:
+    # shuffle configurations for various reasons:
     # - improve ETA calculation
     # - have broader results when cancelling prematurely
     import random

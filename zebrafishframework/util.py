@@ -51,6 +51,7 @@ def call(cmd, print_output=False):
 
 
 def format_time(e):
+    e = int(e)
     return '{:02d}:{:02d}:{:02d}'.format(e // 3600, (e % 3600 // 60), e % 60)
 
 
