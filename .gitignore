@@ -36,3 +36,6 @@ pytorch
 # .idea/modules.xml
 # .idea/*.iml
 # .idea/modules
+
+# File-based project format
+*.iws
