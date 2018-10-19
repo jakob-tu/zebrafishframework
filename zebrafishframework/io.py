@@ -1,5 +1,6 @@
 import bioformats
 import deepdish as dd
+import h5py
 import javabridge
 import numpy as np
 import os.path
@@ -56,6 +57,13 @@ def h5_node_exists(fn, name):
 def h5_is_itk(fn):
     return h5_node_exists(fn, '/ITKImage')
 
+
+def read_h5py(fn):
+    f = h5py.File(fn, mode='r')
+    dataset = list(f.items())[0][1]
+    w = np.empty(dataset.shape, dataset.dtype)
+    dataset.read_direct(w)
+    return w
 
 def get_frame(fn, t):
     """
