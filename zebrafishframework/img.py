@@ -4,13 +4,7 @@ import os
 from pyprind import prog_percent
 
 from . import io
-from . import ants
-
-
-def average(images, eps):
-
-
-    return avg
+from . import ants_cmd
 
 
 def selective_z_downscale(img, z2):
@@ -97,7 +91,7 @@ def register_timeseries(fn, ts, params, num_threads):
     ref = frame_name(ts[0])
     for i, t in enumerate(ts[1:]):
         if not os.path.exists(registered_name(t)):
-            ants.run_antsreg(frame_name(t), ref,)
+            ants_cmd.run_antsreg(frame_name(t), ref, )
             print(t)
         else:
             print('Skipping %d' % t)

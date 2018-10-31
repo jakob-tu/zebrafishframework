@@ -1,7 +1,7 @@
 import os
 from pyprind import prog_percent
 
-from . import ants
+from . import ants_cmd
 from . import img
 from . import io
 
