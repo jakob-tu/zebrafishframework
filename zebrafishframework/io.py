@@ -23,7 +23,71 @@ class UnsupportedFormatException(Exception):
     pass
 
 
-def get_shape(fn):
+def lif_get_metas(fn):
+    md = bioformats.get_omexml_metadata(fn)  # Load meta data
+    mdroot = ETree.fromstring(md)  # Parse XML
+    #    meta = mdroot[1][3].attrib # Get relevant meta data
+    metas = list(map(lambda e: e.attrib, mdroot.iter('{http://www.openmicroscopy.org/Schemas/OME/2016-06}Pixels')))
+
+    return metas
+
+
+def lif_open(fn):
+    javabridge.start_vm(class_path=bioformats.JARS)
+    ir = bioformats.ImageReader(fn)
+
+    return ir
+
+
+def lif_read_stack(fn):
+    ir = lif_open(fn)
+    img_i = lif_find_timeseries(fn)
+    shape = get_shape(fn, img_i)
+
+    stack = np.empty(shape, dtype=np.uint16)
+
+    # Load the whole stack...
+    for t in prog_percent(range(stack.shape[0])):
+        for z in range(stack.shape[1]):
+            stack[t, z] = ir.read(t=t, z=z, c=0, series=img_i, rescale=False)
+
+    return stack
+
+
+def readLifAndSaveAsH5(fn):
+    '''Read LIF (Leica) file using bioformats and save it compressed as HDF5 file
+    :param fn: filename
+    :return: filename of HDF5 file'''
+    print('Working on ', fn)
+
+    fn_hdf5 = fn.replace('.lif', '.h5')
+    stack = lif_read_stack(fn)
+
+    dd.io.save(fn_hdf5, {'stack': stack}, compression='blosc')
+    #    save(fn_hdf5, prealloc_stack, spacing)
+
+    print('Data saved [%s]' % util.format_time(time.time() - t))
+
+    return fn_hdf5
+
+
+def lif_find_timeseries(fn):
+    metas = lif_get_metas(fn)
+
+    meta = None
+    img_i = 0
+    for i, m in enumerate(metas):
+        if int(m['SizeT']) > 1:
+            meta = m
+            img_i = i
+
+    if not meta:
+        raise ValueError('lif does not contain an image with sizeT > 1')
+
+    return img_i
+
+
+def get_shape(fn, index=0):
     """
 
     :param fn: image file
@@ -41,6 +105,21 @@ def get_shape(fn):
     elif in_ext == '.nrrd':
         img = load(fn)
         return img.shape
+    elif in_ext == '.lif':
+        metas = lif_get_metas(fn)
+        meta = metas[index]
+
+        shape = (
+            int(meta['SizeT']),
+            int(meta['SizeZ']),
+            int(meta['SizeY']),
+            int(meta['SizeX']),
+        )
+        order = meta['DimensionOrder']
+        spacing = tuple([float(meta['PhysicalSize%s' % c]) for c in 'XYZ'])
+
+        return shape
+
     else:
         raise UnsupportedFormatException('Input format "' + in_ext + '" is not supported.')
 
@@ -65,6 +144,7 @@ def read_h5py(fn):
     dataset.read_direct(w)
     return w
 
+
 def get_frame(fn, t):
     """
     Get a frame from series images
@@ -83,8 +163,17 @@ def get_frame(fn, t):
             img = dd.io.load(fn, '/stack', sel=sel)
             img = img.squeeze()
             return img
+    elif in_ext == '.lif':
+        ir = lif_open(fn)
+        img_i = lif_find_timeseries(fn)
+        shape = get_shape(fn, img_i)
+        frame = np.zeros(shape[1:])
+        for z in range(shape[1]):
+            frame[z] = ir.read(t=t, z=z, c=0, series=img_i, rescale=False)
+        return frame
+
     else:
-        raise UnsupportedFormatException('Only h5 as time series format supported.')
+        raise UnsupportedFormatException('h5 and lif as time series format supported.')
 
 
 def __sitkread(filename):
@@ -129,68 +218,6 @@ def save(fn, data, spacing):
     else:
         raise UnsupportedFormatException('Output format "' + out_ext + '" is not supported.')
 
-
-def readLifAndSaveAsH5(fn):
-    '''Read LIF (Leica) file using bioformats and save it compressed as HDF5 file
-    :param fn: filename
-    :return: filename of HDF5 file'''
-    print('Working on ', fn)
-    javabridge.start_vm(class_path=bioformats.JARS)
-
-    fn_hdf5 = fn.replace('.lif', '.h5')
-    md = bioformats.get_omexml_metadata(fn)  # Load meta data
-    mdroot = ETree.fromstring(md)  # Parse XML
-    #    meta = mdroot[1][3].attrib # Get relevant meta data
-    metas = list(map(lambda e: e.attrib, mdroot.iter('{http://www.openmicroscopy.org/Schemas/OME/2016-06}Pixels')))
-
-    # lif can contain multiple images, select one that is likely to be the timeseries
-    meta = None
-    img_i = 0
-    for i, m in enumerate(metas):
-        if int(m['SizeT']) > 1:
-            meta = m
-            img_i = i
-
-    if not meta:
-        raise ValueError('lif does not contain an image with sizeT > 1')
-
-    # Pre-allocate RAM
-    shape = (
-        int(meta['SizeT']),
-        int(meta['SizeZ']),
-        int(meta['SizeY']),
-        int(meta['SizeX']),
-    )
-    order = meta['DimensionOrder']
-    spacing = tuple([float(meta['PhysicalSize%s' % c]) for c in 'XYZ'])
-
-    print('Shape: %s' % str(shape))
-    print('Order: %s' % str(order))
-    print('Spacing: %s' % str(spacing))
-
-    prealloc_stack = np.empty(shape, dtype=np.uint16)
-
-    # Create ImageReader instance
-    ir = bioformats.ImageReader(fn)
-
-    # Load the whole stack...
-    for t in prog_percent(range(prealloc_stack.shape[0])):
-        for z in range(prealloc_stack.shape[1]):
-            prealloc_stack[t, z] = ir.read(t=t, z=z, c=0, series=img_i, rescale=False)
-
-    # for some reason one can use this command only once if jvm is killed
-    #javabridge.kill_vm()
-
-    # Save stack as HDF5 file with BLOSC compression.
-
-    t = time.time()
-
-    dd.io.save(fn_hdf5, {'stack': prealloc_stack, 'shape': shape, 'spacing': spacing}, compression='blosc')
-#    save(fn_hdf5, prealloc_stack, spacing)
-
-    print('Data saved [%s]' % util.format_time(time.time() - t))
-
-    return fn_hdf5
 
 
 def convert(fn, out_ext):
