@@ -29,7 +29,7 @@ def find_rois_andreas(anatomy_std, template, trace, mask=None):
         for x, y in plm:
             if anatomy_std[plane, x, y] > 20:  # Change intensity if it is too or not sensitive enough
                 stencil = circle(x, y, radius, anatomy_std[plane].shape)
-                rois.append(dict(plane=plane, x=x, y=y, trace=trace[:, plane, stencil[0], stencil[1]].mean(1),
+                rois.append(dict(x=x, y=y, z=plane, trace=np.array(trace[:, plane, stencil[0], stencil[1]].mean(1)),
                                     radius=radius))
             roi_id += 1
 
@@ -47,19 +47,19 @@ def draw_rois(rois, anatomy_std, color_func=None):
     for roi_id, roi in enumerate(rois):
         x = roi['x']
         y = roi['y']
-        plane = roi['plane']
-        com = circle(x, y, 1.2, anatomy_std[plane].shape)
+        z = roi['z']
+        com = circle(x, y, 1.2, anatomy_std[z].shape)
         if color_func:
             color = color_func(roi_id)
         else:
             color = (255, 0, 255)
-        roi_map[plane][com] = color
+        roi_map[z][com] = color
 
     return roi_map
 
 
-def dFF(rois, pre_range):
-    traces = np.array([v['trace'] for v in rois])
+def dFF(traces, pre_range):
+#    traces = np.array([v['trace'] for v in rois])
     pre_mean = traces[:, pre_range].mean(1)
     traces_dFF = ((traces.T - pre_mean) / pre_mean).T
     return traces_dFF
