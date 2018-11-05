@@ -145,7 +145,7 @@ def read_h5py(fn):
     return w
 
 
-def get_frame(fn, t):
+def get_frame(fn, t, img_i=-1):
     """
     Get a frame from series images
     :param fn:
@@ -165,9 +165,10 @@ def get_frame(fn, t):
             return img
     elif in_ext == '.lif':
         ir = lif_open(fn)
-        img_i = lif_find_timeseries(fn)
+        if img_i == -1:
+            img_i = lif_find_timeseries(fn)
         shape = get_shape(fn, img_i)
-        frame = np.zeros(shape[1:])
+        frame = np.zeros(shape[1:], np.uint16)
         for z in range(shape[1]):
             frame[z] = ir.read(t=t, z=z, c=0, series=img_i, rescale=False)
         return frame
