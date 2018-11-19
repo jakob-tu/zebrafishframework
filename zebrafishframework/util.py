@@ -4,6 +4,7 @@ import random
 import string
 import subprocess
 import sys
+import time
 
 
 class ExecutionException(Exception):
@@ -48,6 +49,13 @@ def call(cmd, print_output=False):
         raise ExecutionException(p.stderr.readlines())
 
     return out
+
+
+def print_time(f):
+    t = time.time()
+    f()
+    t = time.time() - t
+    print('Took %s' % format_time(t))
 
 
 def format_time(e):
