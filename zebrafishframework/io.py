@@ -87,6 +87,10 @@ def lif_find_timeseries(fn):
     return img_i
 
 
+def kill_jvm():
+    javabridge.kill_vm()
+
+
 def get_shape(fn, index=0):
     """
 
@@ -218,7 +222,6 @@ def save(fn, data, spacing):
         __sitkwrite(fn, data, spacing)
     else:
         raise UnsupportedFormatException('Output format "' + out_ext + '" is not supported.')
-
 
 
 def convert(fn, out_ext):
