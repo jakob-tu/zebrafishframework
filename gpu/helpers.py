@@ -1,5 +1,3 @@
-
-
 import sys
 import os
 from xml import etree as et
@@ -23,7 +21,7 @@ import time
 import re
 import tables
 import h5py
-import ipyvolume as ipv
+#import ipyvolume as ipv
 import ipywidgets as widgets
 
 EPSILON = np.finfo(np.float64).eps
@@ -41,7 +39,6 @@ tempFrame = np.empty(0)
 tempChunk = np.empty(0)
 tempPlaneStack = np.empty(0)
 tempPlaneChunk = np.empty(0)
-lifImgStackIdx = 0.5
 framesPerChunk = 0
 def startLifReader(filePath, framesPChunk):
     global tempFrame, tempChunk, framesPerChunk, tempPlaneStack, tempPlaneChunk, jvmRunning
@@ -78,13 +75,13 @@ def closeLifReader():
     return
 
 
-def readFrame(lifReader, f, planeCount):
+def readFrame(lifReader, f, planeCount, lifImgStackIdx):
     frame = np.empty_like(tempFrame)
     for z in range(planeCount):
         frame[z] = lifReader.read(t=f, z=z, c=0, series=lifImgStackIdx, rescale=False)
     return frame
 
-def readPlane(lifReader, z, f):
+def readPlane(lifReader, z, f, lifImgStackIdx):
     return lifReader.read(t=f, z=z, c=0, series=lifImgStackIdx, rescale=False)
 
 
