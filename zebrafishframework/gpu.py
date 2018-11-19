@@ -1,11 +1,14 @@
 import numpy as np
+import deepdish as dd
+import os
 from pyprind import prog_percent
+import sys
 from threading import Lock
 import torch as th
 from torch.autograd import Variable
 from torch.nn.functional import affine_grid, grid_sample
 
-from . import io
+from zebrafishframework import io
 
 def toGPU(npArray):
     return Variable(th.from_numpy(npArray.astype(np.float32)).cuda(), requires_grad=False)
@@ -16,11 +19,10 @@ def toCPU(tensor):
 def tensor3D(shape):
     return th.Tensor(shape[0], shape[1], shape[2]).cuda()
 
-class GPUAlignment:
-    def __init__(self, lif_filename, align_to=0, maxDisplacement=30):
+class Alignment:
+    def __init__(self, lif_filename, align_to=0):
         self.lif_filename = lif_filename
         self.align_to = align_to
-        self.MAX_DISPLACEMENT = maxDisplacement
 
         self.sumMutexGPU = Lock()
         self.sumMutexCPU = Lock()
@@ -54,7 +56,7 @@ class GPUAlignment:
         self.sumSqStdDev = np.empty(self.shape)
         self.sumTensor   = toGPU(self.sumStdDev)
         self.sumSqTensor = toGPU(self.sumSqStdDev)
-        self.invalidFrames = np.empty(0)
+        self.shifts = np.empty((self.nf, self.shape[0], 2))
 
         # alignmentFrame
         self.imgDimCount = self.alignmentFrame[0].ndim
@@ -75,20 +77,31 @@ class GPUAlignment:
         ts = list(range(self.nf))
 
         for f in prog_percent(ts):
-            # for z in range(self.lif_shape[1]):
-            for z in [10]:
+            for z in range(self.lif_shape[1]):
                 plane = self.ir.read(z=z, t=f, c=0, series=self.lif_idx, rescale=False)
                 frame_stack[f, z] = toCPU(self.alignPlaneGPU(toGPU(plane), z, f))
-        return frame_stack
+
+        """
+        self.frameCount -= len(self.invalidFrames)
+        self.stdDeviation = toCPU(th.sqrt((self.sumSqTensor[z] - self.sumTensor[z]**2/self.frameCount)/(self.frameCount-1)))
+        """
+
+        #stdDevDiffTensor = toGPU(sumSqStdDev[z]) + sumSqTensor[z] - (toGPU(sumStdDev[z]) + sumTensor[z])**2/frameCount
+        #stdDeviation = toCPU(th.sqrt(stdDevDiffTensor**2/(frameCount-1)))
+
+        return dict(aligned=frame_stack, shifts=self.shifts)
 
     def alignPlaneGPU(self, planeTensor, z, f):
         global sumTensor, sumSqTensor, invalidFrames
 
         shift = self.registerTranslationGPU(planeTensor, z)
+        """
         if np.sqrt(np.sum(shift**2)) > self.MAX_DISPLACEMENT:
             np.append(self.invalidFrames, f)
             planeTensor[:,:] = 0
             return planeTensor
+        """
+        self.shifts[f, z] = shift
         planeTensor = self.warpGPU(planeTensor, shift)
         with self.sumMutexGPU:
             self.sumTensor[z]   += planeTensor
@@ -149,15 +162,31 @@ class GPUAlignment:
 
     """
 
-    def getPlaneStdDeviation(self, z, frameCount):
-        self.invalidFrames = np.unique(np.sort(self.invalidFrames))
-        self.frameCount -= len(self.invalidFrames)
 
-        self.stdDeviation = toCPU(th.sqrt((self.sumSqTensor[z] - self.sumTensor[z]**2/self.frameCount)/(self.frameCount-1)))
+if __name__ == '__main__':
+    print(sys.argv)
+    if len(sys.argv) < 3:
+        print('Usage: %s input.lif output_base' % sys.argv[0])
+        exit(1)
+    in_lif, base = sys.argv[1:3]
 
-        #stdDevDiffTensor = toGPU(sumSqStdDev[z]) + sumSqTensor[z] - (toGPU(sumStdDev[z]) + sumTensor[z])**2/frameCount
-        #stdDeviation = toCPU(th.sqrt(stdDevDiffTensor**2/(frameCount-1)))
-        return self.stdDeviation
+    try:
+        alignment = Alignment(in_lif)
+        res = alignment.run()
 
-    def getInvalidFrames(self):
-        return np.unique(np.sort(self.invalidFrames))
+        aligned = res['aligned']
+        shifts = res['shifts']
+
+        print('Saving shifts...')
+        np.save(base + '_shifts.npy', shifts)
+        print('Saving aligned stack...')
+        dd.io.save(base + '_aligned.h5', aligned, 'blosc')
+        print('Saving layer 10...')
+        # without blosc compression, the fiji hdf5 plugin does not support this atm
+        dd.io.save(base+ '_aligned_z10.h5', aligned[:,10,...])
+        print('done')
+    except Exception as e:
+        print(e)
+
+    io.kill_jvm()
+    os._exit(0)
