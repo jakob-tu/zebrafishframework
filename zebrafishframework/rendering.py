@@ -10,7 +10,7 @@ def orthogonal(rois, traces, color_func, ts, shape):
 
     for i, t in prog_percent(list(enumerate((ts)))):
         for roi_id, (roi, trace) in enumerate(zip(rois, traces)):
-            x, y = roi['x'], roi['y']
+            x, y, z, _ = roi
             activity[i, x, y] = color_func(trace[t])
 
     return activity

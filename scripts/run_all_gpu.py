@@ -7,8 +7,8 @@ import os
 
 from zebrafishframework import util
 
-#for f in fileinput.input():
-files = glob('/Users/koesterlab/calcium/control/fish*.lif')
+files = fileinput.input()
+#files = glob('/Users/koesterlab/calcium/control/fish*.lif')
 
 def make_base(f):
     f_base = f.replace('calcium', 'registered').replace('.lif', '')

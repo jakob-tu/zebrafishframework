@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import deepdish as dd
+import fileinput
 from glob import glob
 import numpy as np
 import os
@@ -12,8 +13,9 @@ from zebrafishframework import io
 from zebrafishframework import segmentation
 
 def main(argv):
-    folder = '/Users/koesterlab/registered/control/'
+    folder = '/Users/koesterlab/registered/stimulus/'
     files = glob(folder + '*_aligned.h5')
+    files = list(fileinput.input())
 
     for f in prog_percent(files):
         try:
@@ -32,11 +34,13 @@ def process_file(base, base_out):
         print('Found rois. Skipping')
         return
 
-    print('Loading invalid frames...')
-    invalid_frames = np.load(base + '_invalid_frames.npy')
+    print('Loading shifts...')
+    shifts = np.load(base + '_shifts.npy')
     print('Loading stack...')
     stack = dd.io.load(base + '_aligned.h5')
     print('Computing std...')
+    shift_dists = np.sqrt(np.sum(np.square(shifts), axis=2))
+    invalid_frames = [i for i in np.arange(np.alen(stack)) if np.any(shift_dists[i] > 30)]
     valid_frames = segmentation.valid_frames(invalid_frames, length=np.alen(stack))
     std = segmentation.std(stack, valid_frames=valid_frames)
     print('Saving std...')
