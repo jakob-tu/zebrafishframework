@@ -24,7 +24,7 @@ METRIC_MI = 'MI[' + REF_IN_KEY + ',1,32,Regular,0.25]'
 METRIC_CC = 'CC[' + REF_IN_KEY + ',1,2]'
 
 
-class AntsArguments:
+class Arguments:
     def __init__(self, input_file, reference, params=None, output_folder=None):
         self.input_file = input_file
         self.reference = reference
@@ -50,7 +50,7 @@ class AntsArguments:
         self.num_threads = mp.cpu_count()
 
 
-class AntsResult:
+class Result:
     def __init__(self, arguments, raw):
         self.arguments = arguments
         self.raw = raw
@@ -65,6 +65,12 @@ class AntsResult:
 
     def load_warped(self):
         return io.load(self.get_warped())
+
+    def get_generic_affine(self):
+        fn, ext = os.path.splitext(os.path.basename(self.arguments.input_file))
+        prefix = os.path.join(self.arguments.output_folder, fn + '_')
+        return prefix + '0GenericAffine.mat'
+
 
 
 def get_default_params():
@@ -241,7 +247,7 @@ def run_antsreg(arguments, print_output=True):
     with open(os.path.join(arguments.output_folder, 'log.txt'), 'w') as f:
         f.write(out)
 
-    result = AntsResult(arguments, out)
+    result = Result(arguments, out)
     result.delta_time = time.time() - start
     result.cmd = cmd
 
@@ -328,7 +334,7 @@ def grid_search(list_input_fish, references, base_folder='gridsearch/', param_sp
         in_ref, params = config
         inp, ref = in_ref
         encode = encode_config(config)
-        arguments = AntsArguments(inp, ref, params=params)
+        arguments = Arguments(inp, ref, params=params)
         arguments.output_folder = os.path.join(base_folder, 'run_' + encode)
 
         RESFILE = 'result.pickle'

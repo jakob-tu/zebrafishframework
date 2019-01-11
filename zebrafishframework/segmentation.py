@@ -1,5 +1,7 @@
 import numpy as np
+import os
 from skimage.draw import circle
+from skimage.io import imread
 from skimage.feature import match_template, peak_local_max, blob_log
 from sklearn.preprocessing import normalize
 
@@ -51,23 +53,61 @@ def find_rois_andreas(anatomy_std, template, trace, mask=None):
     return rois
 
 
-def get_traces(stack, rois):
+def get_traces(stack, rois, use_radius=None):
     traces = []
     for roi in rois:
         x, y, z, r = list(map(int, roi))
-        stencil = circle(x, y, r, stack[0][z].shape)
+        if use_radius != None:
+            r = use_radius
+        stencil = circle(y, x, r, stack[0][z].shape)
         trace = np.array(stack[:, z, stencil[0], stencil[1]].mean(1))
         traces.append(trace)
     return np.asarray(traces)
 
 
-def find_rois_template(img, template, peakMinDistance=2, peakRelThreshold=.2, minIntensity=20):
-    m = match_template(img, template, pad_input=True)
-    plm = peak_local_max(m, min_distance=peakMinDistance, threshold_rel=peakRelThreshold)
-    return np.asarray([(y, x) for x, y in plm if (img[x, y] > minIntensity)])
+def load_template():
+    template_fn = os.path.dirname(__file__) + '/data/cell.tif'
+    if not os.path.exists(template_fn):
+        raise Exception('Error: Template file not found.')
+
+    template = imread(template_fn)
+    return template
+
+
+def mask_rois(rois, mask, thres=.1):
+    return mask[list(np.swapaxes(np.flip(rois[:,:3], axis=1), 0, 1))] > thres
+
+
+# Adjust threshold for ROI detection
+def find_rois_template(nda, template, peakMinDistance=2, peakRelThreshold=.2, minIntensity=20):
+    '''
+    ROI detection adapted from andreas.
+    :param nda:
+    :param template:
+    :param peakMinDistance:
+    :param peakRelThreshold:
+    :param minIntensity:
+    :return:
+    '''
+    rois = []
+    for z, img in enumerate(nda):
+        m = match_template(img, template, pad_input=True)
+        plm = peak_local_max(m, min_distance=peakMinDistance, threshold_rel=peakRelThreshold)
+        rois.extend(np.asarray([(y, x, z, 0) for x, y in plm if (img[x, y] > minIntensity)]))
+    return np.array(rois)
 
 
 def find_rois_blob(nda, maxRadius=3, sizeIters=30, threshold=1.5, overlap=0, minIntensity=20):
+    '''
+    Blob detection by immanuel.
+    :param nda:
+    :param maxRadius:
+    :param sizeIters:
+    :param threshold:
+    :param overlap:
+    :param minIntensity:
+    :return:
+    '''
     rois = []
     for z, img in enumerate(nda):
         blobs = blob_log(normalize(img), max_sigma=maxRadius*0.70710678118, # sigma = radius/sqrt(2)
@@ -77,20 +117,30 @@ def find_rois_blob(nda, maxRadius=3, sizeIters=30, threshold=1.5, overlap=0, min
     return rois
 
 
-def draw_rois(rois, anatomy_std, color_func=None):
+def filter_rois_shape(rois, shape):
+    return np.array([np.all(roi < shape) and np.all(roi >= 0) for roi in rois])
+
+
+def draw_rois(rois, anatomy_std, vmax = None, color_func=None, fixed_z = None):
     roi_map = np.zeros(anatomy_std.shape + (3,), dtype=np.uint8)
 
+    if not vmax:
+        vmax = np.max(anatomy_std)
+
     for plane in range(anatomy_std.shape[0]):
-        roi_map[plane, :, :] = (anatomy_std[plane][..., None] / np.max(anatomy_std[plane]) * 255).astype(np.uint8)
+        roi_map[plane, :, :] = (np.minimum(anatomy_std[plane][..., None], vmax) / vmax * 255).astype(np.uint8)
 
     for roi_id, roi in enumerate(rois):
-        x, y, z, r, _ = roi.astype(np.int32)
-        com = circle(x, y, 1.2, anatomy_std[z].shape)
+        x, y, z, r = roi.astype(np.int32)
+        if fixed_z != None:
+            z = fixed_z
+        com = circle(y, x, 1.2, anatomy_std[0].shape)
         if color_func:
             color = color_func(roi_id)
         else:
             color = (255, 0, 255)
-        roi_map[z][com] = color
+        if z >= 0 and z < anatomy_std.shape[0]:
+            roi_map[z][com] = color
 
     return roi_map
 

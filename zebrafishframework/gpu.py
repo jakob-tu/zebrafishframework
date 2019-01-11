@@ -1,3 +1,9 @@
+# https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
+import warnings
+warnings.filterwarnings("ignore", message="numpy.dtype size changed")
+warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
+
+import argparse
 import numpy as np
 import deepdish as dd
 import os
@@ -163,29 +169,36 @@ class Alignment:
     """
 
 
+# register a single fish brain (.lif), gives output to .h5
 if __name__ == '__main__':
-    print(sys.argv)
-    if len(sys.argv) < 3:
-        print('Usage: %s input.lif output_base' % sys.argv[0])
-        exit(1)
-    in_lif, base = sys.argv[1:3]
+    parser = argparse.ArgumentParser()
+    parser.add_argument('input')
+    parser.add_argument('output_base')
+    parser.add_argument('--saveplane', type=int)
+    args = parser.parse_args()
 
     try:
-        alignment = Alignment(in_lif)
+        alignment = Alignment(args.input)
         res = alignment.run()
 
         aligned = res['aligned']
         shifts = res['shifts']
 
         print('Saving shifts...')
-        np.save(base + '_shifts.npy', shifts)
+        np.save(args.output_base + '_shifts.npy', shifts)
         print('Saving aligned stack...')
-        dd.io.save(base + '_aligned.h5', aligned, 'blosc')
-        print('Saving layer 10...')
-        # without blosc compression, the fiji hdf5 plugin does not support this atm
-        dd.io.save(base+ '_aligned_z10.h5', aligned[:,10,...])
+        dd.io.save(args.output_base + '_aligned.h5', aligned, 'blosc')
+
+        if args.saveplane:
+            print('Saving layer %d...' % args.saveplane)
+            # without blosc compression, the fiji hdf5 plugin does not support this atm
+            if not args.saveplane in np.arange(aligned.shape[1]):
+                print('Error: Plane %d does not exist.' % args.saveplane)
+            else:
+                dd.io.save(args.output_base + '_aligned_z%d.h5' % args.saveplane, aligned[:,args.saveplane,...])
         print('done')
     except Exception as e:
+        print('Exception while processing "%s":' % args.input)
         print(e)
 
     io.kill_jvm()

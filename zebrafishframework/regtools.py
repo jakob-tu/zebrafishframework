@@ -78,6 +78,36 @@ def planewise_affine(fixed, moving, return_transforms=False):
     return warped
 
 
+def transform_xyz(t, roi, img_from, img_to):
+    # make index/physical transformations directly with spacing. we don't use origin/direction etc.
+    # and antspy requires you to supply the input vector as type int, causing aliasing effects
+
+    # phys = ants.transform_index_to_physical_point(img_from, np.round(roi).astype(np.int))
+    phys = np.array(roi)*img_from.spacing
+    trans = ants.apply_ants_transform_to_point(t, phys)
+    # ind = ants.transform_physical_point_to_index(img_to, trans)
+    ind = np.array(trans)/img_to.spacing
+    return ind
+
+
+def transform_rois(fixed, moving, rois, **kwargs):
+    def set_ifn(key, val):
+        if not key in kwargs:
+            kwargs[key] = val
+
+    set_ifn('type_of_transform', 'Affine')
+    set_ifn('reg_iterations', [500, 500, 500])
+    set_ifn('grad_step', .1)
+
+    res = ants.registration(fixed, moving, **kwargs)
+    t = ants.read_transform(res['fwdtransforms'][0])
+    xyzs = rois[:, :3]
+    rs = rois[:, 3:]
+
+    xyzs_transformed = np.array(list(map(lambda xyz: transform_xyz(t.invert(), xyz, moving, fixed), xyzs)))
+    return np.concatenate([xyzs_transformed, rs], axis=1)
+
+
 def transform_planewise_points(nda, transforms_zshift):
     transforms, zshift = transforms_zshift
 

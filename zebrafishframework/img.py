@@ -7,6 +7,53 @@ from . import io
 from . import ants_cmd
 
 
+# rotate left 90 degrees and flip z axis
+def our_view_to_zbrain_img(img):
+    if len(img.shape) != 3:
+        raise ValueError('Only implemented for 3d')
+    return np.flip(np.rot90(img, axes=(1, 2)), axis=0)
+
+
+def our_view_to_zbrain_point(p, shape):
+    '''
+
+    :param p: point as xyz
+    :param shape: shape as zyx
+    :return:
+    '''
+    if p.shape[0] != 3:
+        raise ValueError('Only implemented for 3d')
+    return np.array([p[1], shape[1]-p[0]-1, shape[0]-p[2]-1])
+
+
+def our_view_to_zbrain_rois(rois, shape):
+    xyzs = rois[:, :3]
+    rs = rois[:, 3:]
+    xyzs_transformed = np.array(list(map(lambda xyz: our_view_to_zbrain_point(xyz, shape), xyzs)))
+    return np.concatenate([xyzs_transformed, rs], axis=1)
+
+
+def enlarge_image(img, by):
+    '''
+    Enlarge an image by adding space 'left' and 'right' in each dimension.
+    :param img: d-dimensional image
+    :param by: array of shape dx2. by[x,0] is the number of elements added at 0, by[x,1] is added after img.shape[x]
+    :param fill_value: value to fill
+    :return: enlarged image
+    '''
+
+    by = np.array(by, dtype=np.int)
+    shape = np.array(img.shape) + np.sum(by, axis=1)
+    enlarged = np.zeros(shape, dtype=img.dtype)
+    enlarged[tuple( [slice(b[0], s+b[0]) for b, s in zip(by, img.shape)] )] = img
+    return enlarged
+
+
+def enlarge_points(rois, by):
+    by_rev = np.flip(by)
+    return np.array([(x + by_rev[0], y + by_rev[1], z + by_rev[2], r) for x, y, z, r in rois])
+
+
 def selective_z_downscale(img, z2):
     z1 = img.shape[-1]
 
@@ -53,8 +100,6 @@ def cmp_images(imgs):
     for img in imgs:
         if img.shape != s:
             raise AttributeError('All images must have the same shape.')
-
-    out = np.zeros((len(imgs), ) + s)
     for i, img in enumerate(imgs):
         print('%d/%d' % (i+1, len(imgs)))
         out[i] = img

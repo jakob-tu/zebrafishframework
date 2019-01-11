@@ -1,16 +1,18 @@
 import deepdish as dd
 import numpy as np
 
-fish = 50
-base = '/Users/koesterlab/registered/stimulus/fish%02d_6dpf_amph' % fish
+fish = 2
+base = '/Users/koesterlab/registered/control/fish%02d_6dpf_medium' % fish
 aligned_fn = base + '_aligned.h5'
-rois_fn = base + '_rois.npy'
-traces_fn = base + '_traces.npy'
 
-#rois = np.load(rois_fn)
-#traces = np.load(traces_fn)
-rois = np.zeros((1,))
-traces = np.zeros((1,))
+base2 = base.replace('registered', 'segmented')
+rois_fn = base2 + '_rois.npy'
+traces_fn = base2 + '_traces.npy'
+
+rois = np.load(rois_fn)
+traces = np.load(traces_fn)
+#rois = np.zeros((1,))
+#traces = np.zeros((1,))
 
 
 def load(t, z):
@@ -26,13 +28,11 @@ view_figure = figure(plot_width=950, plot_height=950, x_range=Range1d(0, 1024, b
            y_range=Range1d(1024, 0, bounds='auto'))
 img_src = ColumnDataSource({})
 
-"""
 rois_data = []
 for z in range(21):
     x = [r[0] for r in rois if r[2] == z]
     y = [r[1] for r in rois if r[2] == z]
     rois_data.append((x, y))
-"""
 
 img = view_figure.image('value', x=0, y=1024, dw=1024, dh=1024, source=img_src, palette='Greys256')
 
@@ -50,7 +50,6 @@ z = 10
 t = 0
 
 def update_rois():
-    return None
     global z
     x, y = rois_data[z]
     rois_src.data = dict(x=x, y=y)
@@ -58,7 +57,7 @@ def update_rois():
 def update_img():
     global z, t
     new_data = load(t, z)
-    displayed = display_image(new_data, 0, 400)
+    displayed = display_image(new_data, 0, 800)
     img_src.data = {'value': [displayed]}
     hist_data = np.bincount(new_data.flatten())
     hist_src.data = dict(x=np.arange(np.alen(hist_data)), top=hist_data)
@@ -76,7 +75,7 @@ def z_select_handler(attr, old, new):
     global z
     z = new
     update_img()
-    #update_rois()
+    update_rois()
 
 
 update_img()

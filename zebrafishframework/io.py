@@ -32,8 +32,20 @@ def lif_get_metas(fn):
     return metas
 
 
-def lif_open(fn):
+def start_jvm():
     javabridge.start_vm(class_path=bioformats.JARS)
+
+    log_level = 'ERROR'
+    # reduce log level
+    rootLoggerName = javabridge.get_static_field("org/slf4j/Logger", "ROOT_LOGGER_NAME", "Ljava/lang/String;")
+    rootLogger = javabridge.static_call("org/slf4j/LoggerFactory", "getLogger",
+                                        "(Ljava/lang/String;)Lorg/slf4j/Logger;", rootLoggerName)
+    logLevel = javabridge.get_static_field("ch/qos/logback/classic/Level", log_level, "Lch/qos/logback/classic/Level;")
+    javabridge.call(rootLogger, "setLevel", "(Lch/qos/logback/classic/Level;)V", logLevel)
+
+
+def lif_open(fn):
+    start_jvm()
     ir = bioformats.ImageReader(fn)
 
     return ir
