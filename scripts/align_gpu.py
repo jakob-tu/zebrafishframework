@@ -111,7 +111,7 @@ def run(args):
                 src = f
 
             print('Running alignment...')
-            cmd = 'python -m zebrafishframework.gpu "%s" "%s"' % (src, b)
+            cmd = 'python -m zebrafishframework.pyfish "%s" "%s"' % (src, b)
             os.system(cmd)
 
             if args.copy:
