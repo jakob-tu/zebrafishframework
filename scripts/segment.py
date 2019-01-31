@@ -124,13 +124,13 @@ def run(args):
             if not args.no_shifts:
                 print('Loading shifts...')
                 shifts = np.load(shifts_fn)
-                shift_dists = np.sqrt(np.sum(np.square(shifts), axis=2))
+                shift_dists = np.sqrt(np.sum(np.square(shifts), axis=1))
             print('Loading stack...')
             stack = dd.io.load(f)
             print('Computing std...')
 
             if not args.no_shifts:
-                invalid_frames = [i for i in np.arange(np.alen(stack)) if np.any(shift_dists[i] > args.shift_threshold)]
+                invalid_frames = [i for i in np.arange(np.alen(stack)) if shift_dists[i] > args.shift_threshold]
             else:
                 invalid_frames = []
 
@@ -166,7 +166,7 @@ Segment multiple aligned fish into ROIs. Three files will be created for each fi
     group_dest.add_argument('-s', '--substitute', help='Subsitute parts of the path. Syntax is replace:with. For instance -s lif_files:aligned_files.')
     parser.add_argument('--overwrite', default=False, action='store_true', help='Don\'t skip existing files.')
     parser.add_argument('--no-verbose', default=False, action='store_true', help='Omit the listing of what will be processed.')
-    parser.add_argument('--shift-threshold', metavar='max', default=30, help='Shift distance threshold at which to exclude a frame from std calculation.')
+    parser.add_argument('--shift-threshold', metavar='max', default=300, help='Shift distance threshold at which to exclude a frame from std calculation.')
     parser.add_argument('--no-shifts', action='store_true', default=False, help='Don\'t use *_shifts.npy to exclude frames (not recommended).')
     args = parser.parse_args()
 
