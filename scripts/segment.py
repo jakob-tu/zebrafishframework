@@ -172,3 +172,4 @@ Segment multiple aligned fish into ROIs. Three files will be created for each fi
 
     run(args)
 
+    os._exit(0)

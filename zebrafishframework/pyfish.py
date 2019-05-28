@@ -1,6 +1,5 @@
-#!/usr/bin/env python3
 
-# https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
+# https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibilityV
 import warnings
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")
@@ -61,10 +60,11 @@ class Pyfish:
 
         log_level = 'ERROR'
 	# reduce log level
-        rootLoggerName = jv.get_static_field("org/slf4j/Logger", "ROOT_LOGGER_NAME", "Ljava/lang/String;")
-        rootLogger = jv.static_call("org/slf4j/LoggerFactory", "getLogger", "(Ljava/lang/String;)Lorg/slf4j/Logger;", rootLoggerName)
-        logLevel = jv.get_static_field("ch/qos/logback/classic/Level", log_level, "Lch/qos/logback/classic/Level;")
-        jv.call(rootLogger, "setLevel", "(Lch/qos/logback/classic/Level;)V", logLevel)
+        # currently does not work in new conda environment
+        #rootLoggerName = jv.get_static_field("org/slf4j/Logger", "ROOT_LOGGER_NAME", "Ljava/lang/String;")
+        #rootLogger = jv.static_call("org/slf4j/LoggerFactory", "getLogger", "(Ljava/lang/String;)Lorg/slf4j/Logger;", rootLoggerName)
+        #logLevel = jv.get_static_field("ch/qos/logback/classic/Level", log_level, "Lch/qos/logback/classic/Level;")
+        #jv.call(rootLogger, "setLevel", "(Lch/qos/logback/classic/Level;)V", logLevel)
 
         self.ir = bf.ImageReader(self.lif_file_path, perform_init=True)
         mdroot = et.ElementTree.fromstring(bf.get_omexml_metadata(self.lif_file_path))
@@ -93,7 +93,8 @@ class Pyfish:
         self.nz = int(self.metadata['SizeZ'])
         self.nx = int(self.metadata['SizeX'])
         self.ny = int(self.metadata['SizeY'])
-        
+
+
         self.stack_shape = (self.nt, self.nz, self.nx, self.ny)
         self.frame_shape = (self.nz, self.nx, self.ny)
         self.plane_shape = (self.nx, self.ny)
@@ -157,7 +158,7 @@ class Pyfish:
             #print ('dst.idx',dst_idx)
             #dst[dst_idx] = self._align_frame(frame, t)
             dst = self._align_frame(frame, t)
-            #self.registered_stack[t] = dst
+            self.registered_stack[t] = dst
             queue.task_done()
         return
     
@@ -250,7 +251,7 @@ class Pyfish:
                  frame_tensor[:,:,:] = 0
                  #self.registered_stack[t] = frame_tensor
                  self.displacement[t] = shifts
-                 return frame_tensor
+                 return self._to_cpu(frame_tensor)
 
             shifts = shift
             self.displacement[t] = shifts
@@ -271,8 +272,8 @@ class Pyfish:
             if np.sqrt(np.sum(shift**2)) > self.max_displacement:
                 self.invalid_frames = np.append(self.invalid_frames, t)
                 frame_tensor[:,:,:] = 0
-                self.registered_stack[t] = frame_tensor
-                return frame_tensor
+                #self.registered_stack[t] = frame_tensor
+                return frame_tensor.numpy()
                 #shifts = shift
             #self.displacement[t] = shift
             print (shift)
@@ -592,12 +593,14 @@ def show_inline_3D_scatter(cell_info, volume, size=(720,720), vol_max_val=30, sp
     ipv.animation_control(scatter_plot, interval=1000/speed, sequence_length=c.shape[0])
     ipv.show()
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('liffile')
     parser.add_argument('output_base')
 
     args = parser.parse_args()
+
     pyfish = Pyfish(args.liffile, use_gpu = True, thread_count=2)
     displacements, aligned = pyfish.register_whole_stack()
 
@@ -605,6 +608,6 @@ if __name__ == '__main__':
     np.save(args.output_base + '_shifts.npy', displacements)
 
     print('Saving aligned stack...')
-    dd.io.save(args.output_base + '_aligned.h5', aligned, 'blosc')
+    dd.io.save(args.output_base + '_aligned.h5', aligned, None)
 
-
+    os._exit(0)

@@ -202,4 +202,4 @@ if __name__ == '__main__':
         print(e)
 
     io.kill_jvm()
-    os._exit(0)
+

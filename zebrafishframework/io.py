@@ -5,7 +5,7 @@ import javabridge
 import numpy as np
 import os.path
 from pyprind import prog_percent
-import SimpleITK as sitk
+#import SimpleITK as sitk
 import tables
 import time
 from xml.etree import ElementTree as ETree
@@ -37,11 +37,13 @@ def start_jvm():
 
     log_level = 'ERROR'
     # reduce log level
+    """
     rootLoggerName = javabridge.get_static_field("org/slf4j/Logger", "ROOT_LOGGER_NAME", "Ljava/lang/String;")
     rootLogger = javabridge.static_call("org/slf4j/LoggerFactory", "getLogger",
                                         "(Ljava/lang/String;)Lorg/slf4j/Logger;", rootLoggerName)
     logLevel = javabridge.get_static_field("ch/qos/logback/classic/Level", log_level, "Lch/qos/logback/classic/Level;")
     javabridge.call(rootLogger, "setLevel", "(Lch/qos/logback/classic/Level;)V", logLevel)
+    """
 
 
 def lif_open(fn):

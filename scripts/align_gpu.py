@@ -42,7 +42,7 @@ def run(args):
         sys.exit(1)
 
     if args.copy:
-        base = os.path.split(args.copy)
+        base = os.path.dirname(args.copy)
         if base != '' and not os.path.isdir(base):
             eprint('Error: "%s" does not exist (-c/--copy file destination).' % base)
             sys.exit(1)
@@ -111,7 +111,10 @@ def run(args):
                 src = f
 
             print('Running alignment...')
-            cmd = 'python -m zebrafishframework.pyfish "%s" "%s"' % (src, b)
+            
+            # dirty dirty hack
+            # use ipython because it can handle javabridge in conda somehow. i don't really know what's going on
+            cmd = 'ipython -m zebrafishframework.pyfish "%s" "%s"' % (src, b)
             os.system(cmd)
 
             if args.copy:
