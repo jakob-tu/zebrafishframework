@@ -60,7 +60,9 @@ class Pyfish:
 
         log_level = 'ERROR'
 	# reduce log level
+
         # currently does not work in new conda environment
+
         #rootLoggerName = jv.get_static_field("org/slf4j/Logger", "ROOT_LOGGER_NAME", "Ljava/lang/String;")
         #rootLogger = jv.static_call("org/slf4j/LoggerFactory", "getLogger", "(Ljava/lang/String;)Lorg/slf4j/Logger;", rootLoggerName)
         #logLevel = jv.get_static_field("ch/qos/logback/classic/Level", log_level, "Lch/qos/logback/classic/Level;")
@@ -83,6 +85,7 @@ class Pyfish:
         frame = np.empty(self.frame_shape, dtype=np.uint16)
         for z in range(self.nz):
             frame[z] = self._read_plane(t, z)
+        #frame = np.swapaxes(frame,1,2)
         return frame
 
     def _read_plane(self, t, z):
@@ -94,6 +97,9 @@ class Pyfish:
         self.nx = int(self.metadata['SizeX'])
         self.ny = int(self.metadata['SizeY'])
 
+
+        #self.nt = 300
+        
 
         self.stack_shape = (self.nt, self.nz, self.nx, self.ny)
         self.frame_shape = (self.nz, self.nx, self.ny)
@@ -189,11 +195,11 @@ class Pyfish:
         upsampled_region_size = np.ceil(upsample_factor * 1.5)        
         dftshift = np.fix(upsampled_region_size / 2.0)
         upsample_factor = np.array(upsample_factor, dtype=np.float64)
-        normalization = (self._to_cpu(img_fourier).size * upsample_factor ** 2)
+        normalization = (img_fourier.numel() * upsample_factor ** 2)
         sample_region_offset = dftshift - shifts*upsample_factor
         image_product = self._to_cpu(image_product)
         imag_part = 1j*image_product[:,:,:,1]
-        img_product_cpu = image_product[:,:,:,1]+imag_part         
+        img_product_cpu = image_product[:,:,:,0]+imag_part         
         cross_correlation = self._upsampled_dft_cpu(img_product_cpu.conj(), upsampled_region_size, upsample_factor, sample_region_offset).conj()
         
         cross_correlation /= normalization
@@ -204,6 +210,7 @@ class Pyfish:
         return shifts
 
 
+    # adapted from: https://scikit-image.org/docs/dev/api/skimage.feature.html#skimage.feature.register_translation
     def _upsampled_dft_cpu(self,data, upsampled_region_size, upsample_factor=20, axis_offsets=None):
         #print ('data', data.shape)
         if not hasattr(upsampled_region_size, "__iter__"):
