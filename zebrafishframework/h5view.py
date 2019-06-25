@@ -1,3 +1,4 @@
+import argparse
 from pyqtgraph.Qt import QtCore, QtGui
 import pyqtgraph as pg
 import numpy as np
@@ -10,7 +11,10 @@ imageData = np.zeros((1024, 1024))
 
 if __name__ == '__main__':
 
-    fn = sys.argv[1]
+    parser = argparse.ArgumentParser(description="Display h5 fish file")
+    parser.add_argument("--filepath", "-f", help="The path to the hdf5 file")
+
+    timefn = parser.filepath
     if not os.path.exists(fn):
         print('File does not exist.')
         sys.exit(1)
