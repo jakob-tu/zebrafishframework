@@ -5,7 +5,7 @@ import javabridge
 import numpy as np
 import os.path
 from pyprind import prog_percent
-#import SimpleITK as sitk
+import SimpleITK as sitk
 import tables
 import time
 from xml.etree import ElementTree as ETree
