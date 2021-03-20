@@ -29,7 +29,7 @@ ipywebrtc==0.4.1
 ipywidgets==7.3.2
 javabridge==1.0.17
 jedi==0.12.1
-Jinja2==2.10
+Jinja2==2.11.3
 jmespath==0.9.3
 jsonschema==3.0.0a2
 jupyter==1.0.0
