@@ -63,7 +63,7 @@ prometheus-client==0.3.1
 prompt-toolkit==1.0.15
 ptyprocess==0.6.0
 pyfaidx==0.5.4.2
-Pygments==2.2.0
+Pygments==2.7.4
 pynrrd==0.3.4
 pyparsing==2.2.0
 PyPrind==2.11.2
